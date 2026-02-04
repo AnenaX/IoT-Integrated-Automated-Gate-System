@@ -1,0 +1,12 @@
+# Python
+__pycache__/
+*.py[cod]
+venv/
+
+# Arduino / ESP32
+build/
+libraries/
+
+# OS
+.DS_Store
+Thumbs.db
