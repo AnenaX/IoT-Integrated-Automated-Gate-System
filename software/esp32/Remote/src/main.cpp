@@ -1,66 +1,39 @@
 #include <Arduino.h>
-#include <IRremote.hpp>  // Librairie IRremote pour ESP32
+#include <IRremote.hpp>
 
-// --- PINS ---
-const int buttonPin = 18;
-const int ledPin    = 19;  // LED de statut
-const int IR_PIN    = 4;   // Émetteur IR
+// --- Configuration ---
+const int buttonPin = 18; // Bouton poussoir
+const int IR_PIN    = 4;  // LED IR
+const int statusLED = 19; // LED de statut
 
-// --- CODES IR (protocole NEC) ---
-const uint32_t CODE_OUVRIR = 0x00FF30CF;
-const uint32_t CODE_FERMER = 0x00FF18E7;
-const uint32_t CODE_STOP   = 0x00FF7A85;
+// --- Codes NEC Identifiés ---
+const uint32_t CODE_TOGGLE = 0x00FFA25D;
+const uint32_t CODE_STOP   = 0x00FF629D;
+const uint32_t CODE_PIETON = 0x00FFE21D;
 
-// --- ÉTAT ---
-bool portailOuvert = false;
-bool dernierBouton = LOW;
+bool dernierBouton = HIGH;
 unsigned long dernierAppui = 0;
-const int DEBOUNCE = 300;
 
 void setup() {
   Serial.begin(115200);
-  pinMode(ledPin, OUTPUT);
-  pinMode(buttonPin, INPUT);
-
-  IrSender.begin(IR_PIN);  // Init émetteur IR
-  Serial.println("[READY] Télécommande prête.");
-}
-
-void envoyerCode(uint32_t code, const char* label) {
-  IrSender.sendNEC(code, 32);
-  Serial.print("[IR] Envoyé : ");
-  Serial.println(label);
+  pinMode(buttonPin, INPUT_PULLUP);
+  pinMode(statusLED, OUTPUT);
+  IrSender.begin(IR_PIN);
+  Serial.println("[READY] Telecommande prete");
 }
 
 void loop() {
-  bool etatBouton = digitalRead(buttonPin);
-
-  // Détection front montant + anti-rebond
-  if (etatBouton == HIGH && dernierBouton == LOW &&
-      (millis() - dernierAppui) > DEBOUNCE) {
-
+  bool etat = digitalRead(buttonPin);
+  // Détection front descendant + anti-rebond 300ms
+  if (etat == LOW && dernierBouton == HIGH && (millis() - dernierAppui) > 300) {
     dernierAppui = millis();
-
-    if (!portailOuvert) {
-      envoyerCode(CODE_OUVRIR, "OUVRIR");
-      digitalWrite(ledPin, HIGH);
-      portailOuvert = true;
-      Serial.println("[PORTAIL] Commande ouverture envoyée.");
-    } else {
-      envoyerCode(CODE_FERMER, "FERMER");
-      digitalWrite(ledPin, LOW);
-      portailOuvert = false;
-      Serial.println("[PORTAIL] Commande fermeture envoyée.");
-    }
+    
+    digitalWrite(statusLED, HIGH);
+    IrSender.sendNEC(CODE_TOGGLE, 32);
+    Serial.println("[IR] Commande Toggle envoyee");
+    delay(100);
+    digitalWrite(statusLED, LOW);
   }
-
-  // Bouton maintenu > 2s = STOP
-  if (etatBouton == HIGH && (millis() - dernierAppui) > 2000) {
-    envoyerCode(CODE_STOP, "STOP");
-    Serial.println("[PORTAIL] Commande STOP envoyée !");
-    delay(500);
-  }
-
-  dernierBouton = etatBouton;
+  dernierBouton = etat;
   delay(10);
 }
